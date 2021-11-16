@@ -56,6 +56,15 @@ contract VNFDeployment {
 	/// @param user address of the registered user.
 	event Unregister(address user);
 
+	// Event which signals to the frontend that a user has been registered.
+	/// @param user address of the user that has been registered.
+	/// @param success Indicates whether the registration of the user was successful.
+	event RegistrationStatus(address user, bool success);
+
+	// Event which signals to the frontend that a user has been unregistered.
+	/// @param user address of the user that has been unregistered.
+	/// @param success Indicates whether the unregistration of the user was successful.
+	event UnregistrationStatus(address user, bool success);
 
 	// Event which signals to the backend to deploy a VNF according to the specified VNFD.
 	/// @param creator address of the user triggering the VNF deployment
@@ -80,6 +89,12 @@ contract VNFDeployment {
 	/// @param vnfIdEncrypted Encrypted VNF identifier (can only be decrypted by the user).
 	event DeploymentStatus(uint vnfId, address user, bool success, string vnfIdEncrypted);
 
+	// Event which signals the status of a VNF deletion to the frontend.
+	/// @param vnfId VNF identifier as specified in this contract.
+	/// @param user User owning the VNF
+	/// @param success Indicates whether the deletion of the VNF was successful.
+	event DeletionStatus(uint vnfId, address user, bool success);
+
 	/* --- PUBLIC FUNCTIONS --- */
 
 	/// Allows the creator of this contract to register the backend account, which is needed for confirming VNF
@@ -99,18 +114,40 @@ contract VNFDeployment {
 	function registerUser(string memory signedAddress) public {
 		address user = msg.sender;
 
-		users[user] = true;
-
 		emit Register(user, signedAddress);
+	}
+
+	// Enables the backend to signal the status of user registration.
+	/// @param user User to be registered.
+	/// @param success Indicates whether the user was registered correctly.
+	function reportRegistration(address user, bool success) public {
+		require(msg.sender == backend, "Only the backend is allowed to call this function.");
+
+		if(success){
+			users[user] = true;
+		}
+
+		emit RegistrationStatus(user, success);
 	}
 
 	// Unregisters the sender of a transaction as a user
 	function unregisterUser() public {
 		address user = msg.sender;
 
-		users[user] = false; // soft delete can be used to disable malicious users, maybe use separate delete function to ban users
-
 		emit Unregister(user);
+	}
+
+	// Enables the backend to signal the status of user unregistration.
+	/// @param user User to be unregistered
+	/// @param success Indicates whether the user was unregistered correctly.
+	function reportUnregistration(address user, bool success) public {
+		require(msg.sender == backend, "Only the backend is allowed to call this function.");
+
+		if(success){
+			users[user] = false; // soft delete can be used to disable malicious users, maybe use separate delete function to ban users
+		}
+
+		emit UnregistrationStatus(user, success);
 	}
 
 	// Deploys a VNF by emitting a deployment event.
@@ -126,7 +163,6 @@ contract VNFDeployment {
 
 		VNF memory vnf = VNF(vnfId, vnfdId, "", user, parameters, false, false);
 
-		//vnfs[vnfId] = vnf;
 		addVnf(vnf, user);
 
 		emit DeployVNF(user, vnfId, vnfdId, parameters);
@@ -143,9 +179,22 @@ contract VNFDeployment {
 
 		require(vnfs[user][index].owner == user, "VNF must exist and can only be deleted by its owner");
 
-		removeVnf(vnfId, user);
-
 		emit DeleteVNF(user, vnfId);
+	}
+
+
+	// Enables the backend to signal the status of VNF deletion.
+	/// @param vnfId VNF identifier as specified in this contract.
+	/// @param user User owning the VNF
+	/// @param success Indicates whether the VNF was instantiated correctly.
+	function reportDeletion(uint vnfId, address user, bool success) public {
+		require(msg.sender == backend, "Only the backend is allowed to call this function.");
+
+		if(success){
+			removeVnf(vnfId, user);
+		}
+
+		emit DeletionStatus(vnfId, user, success);
 	}
 
 	// Enables the backend to signal the status of VNF instantiation
