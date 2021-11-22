@@ -1,10 +1,15 @@
 const VNFDeployment = artifacts.require("VNFDeployment");
+const truffleAssert = require("truffle-assertions");
 
 contract("VNFDeployment", accounts => {
-  it("should set the creator of the contract", async() =>{
-    // arrange
-    const instance = await VNFDeployment.deployed();
 
+  let instance;
+
+  beforeEach('set up of contract', async() => {
+    instance = await VNFDeployment.new();
+  });
+
+  it("should set the creator of the contract", async() =>{
     // act, assert
     assert.notEqual(await instance.creator(), null);
   });
@@ -12,7 +17,6 @@ contract("VNFDeployment", accounts => {
   it("should set the backend", async() =>{
     // arrange
     const user = accounts[1];
-    const instance = await VNFDeployment.deployed();
 
     // act
     await instance.registerBackend(user);
@@ -21,146 +25,165 @@ contract("VNFDeployment", accounts => {
     assert.equal(await instance.backend(), user);
   });
 
-  it("should emit a Register event", async() =>{
-    // arrange
-    const instance = await VNFDeployment.deployed()
+  it("should deny deployVNF for unregistered users", async() => {
+    // act, assert
+    await truffleAssert.reverts(instance.deployVNF("12", "asdf=test"), "User not registered.");
+  });
 
+  it("should deny deleteVNF for unregistered users", async() => {
+    // act, assert
+    await truffleAssert.reverts(instance.deleteVNF(1), "User not registered.");
+  });
+
+  it("should deny reportDeployment for unregistered backend", async() => {
+    // arrange
+    const user = accounts[1];
+
+    // act, assert
+    await truffleAssert.reverts(instance.reportDeployment(1, user, true, "someId"), "Only the backend is allowed to call this function.");
+  });
+
+  it("should deny reportDeletion for unregistered backend", async() => {
+    // arrange
+    const user = accounts[1];
+
+    // act, assert
+    await truffleAssert.reverts(instance.reportDeletion(1, user, true), "Only the backend is allowed to call this function.");
+  });
+
+  it("should deny reportRegistration for unregistered backend", async() => {
+    // arrange
+    const user = accounts[1];
+
+    // act, assert
+    await truffleAssert.reverts(instance.reportRegistration(user, true), "Only the backend is allowed to call this function.");
+  });
+
+  it("should emit a Register event", async() =>{
     // act
-    const result = (await instance.registerUser("xyz")).logs[0];
+    const result = await instance.registerUser("xyz");
 
     // assert
-    assert.equal(result.event, "Register");
-    assert.equal(result.args["user"], await instance.creator());
-    assert.equal(result.args["signedAddress"], "xyz");
+    truffleAssert.eventEmitted(result, "Register", async(e) => {
+      return e.user == await instance.creator() && e.signedAddress == "xyz";
+    });
   });
 
   it("should emit a RegistrationStatus event", async() =>{
     // arrange
-    const instance = await VNFDeployment.deployed();
     await instance.registerBackend(await instance.creator());
 
     // act
-    const result = (await instance.reportRegistration(accounts[1], true)).logs[0];
+    const result = await instance.reportRegistration(accounts[1], true);
 
     // assert
-    assert.equal(result.event, "RegistrationStatus");
-    assert.equal(result.args["user"], accounts[1]);
-    assert.equal(result.args["success"], true);
+    truffleAssert.eventEmitted(result, "RegistrationStatus", e => {
+      return e.user == accounts[1] && e.success == true;
+    });
   });
 
   it("should emit a Unregister event", async() => {
-    // arrange
-    const instance = await VNFDeployment.deployed()
-
     // act
-    const result = (await instance.unregisterUser()).logs[0];
+    const result = await instance.unregisterUser();
 
     // assert
-    assert.equal(result.event, "Unregister");
-    assert.equal(result.args["user"], await instance.creator());
+    truffleAssert.eventEmitted(result, "Unregister", async(e) => {
+      return e.user == await instance.creator();
+    });
   });
 
   it("should emit a UnegistrationStatus event", async() =>{
     // arrange
-    const instance = await VNFDeployment.deployed();
     await instance.registerBackend(await instance.creator());
 
     // act
-    const result = (await instance.reportUnregistration(accounts[1], true)).logs[0];
+    const result = await instance.reportUnregistration(accounts[1], true);
 
     // assert
-    assert.equal(result.event, "UnregistrationStatus");
-    assert.equal(result.args["user"], accounts[1]);
-    assert.equal(result.args["success"], true);
+    truffleAssert.eventEmitted(result, "UnregistrationStatus", e => {
+      return e.user == accounts[1] && e.success == true;
+    });
   });
 
   it("should emit a DeployVNF event", async() => {
     // arrange
-    const instance = await VNFDeployment.deployed();
     const user = await instance.creator();
     await instance.registerBackend(user);
     await instance.reportRegistration(user, true);
 
-    const vnfdId = "1";
+    const vnfdId = "XYZ";
     const params = "ram=1G,cpu=2,disk=500G";
 
     // act
-    const result = (await instance.deployVNF(vnfdId, params)).logs[0];
+    const result = await instance.deployVNF(vnfdId, params);
 
     // assert
-    assert.equal(result.event, "DeployVNF");
-    assert.equal(result.args["creator"], user);
-    assert.equal(result.args["correlationId"], 1);
-    assert.equal(result.args["vnfdId"], vnfdId);
-    assert.equal(result.args["parameters"], params);
+    truffleAssert.eventEmitted(result, "DeployVNF", e => {
+      return e.creator === user && e.correlationId == 1 && e.vnfdId == vnfdId && e.parameters == params;
+    });
   });
 
   it("should emit a DeploymentStatus event", async() => {
     // arrange
-    const instance = await VNFDeployment.deployed();
     const user = await instance.creator();
     await instance.registerBackend(user);
     await instance.reportRegistration(user, true);
-    const vnfdId = "1";
+    const vnfdId = "XYZ";
     const params = "ram=1G,cpu=2,disk=500G";
     await instance.deployVNF(vnfdId, params);
     const correlationId = 1;
     const vnfId = "0xfabababababababab";
 
     // act
-    const result = (await instance.reportDeployment(correlationId, user, true, vnfId)).logs[0];
+    const result = await instance.reportDeployment(correlationId, user, true, vnfId);
 
     // assert
-    assert.equal(result.event, "DeploymentStatus");
-    assert.equal(result.args["correlationId"], correlationId);
-    assert.equal(result.args["user"], user);
-    assert.equal(result.args["success"], true);
-    assert.equal(result.args["vnfId"], vnfId);
+    truffleAssert.eventEmitted(result, "DeploymentStatus", e => {
+      return e.correlationId == correlationId && e.user == user && e.success == true && e.vnfId == vnfId;
+    });
   });
 
   it("should emit a DeleteVNF event", async() => {
     // arrange
-    const instance = await VNFDeployment.deployed();
+    // const instance = await sc.deployed();
     const user = await instance.creator();
     const vnfId = "ASDF-8291-DFEA";
     await instance.registerBackend(user);
     await instance.reportRegistration(user, true);
 
-    const vnfdId = "1";
+    const vnfdId = "XYZ";
     const params = "ram=1G,cpu=2,disk=500G";
     await instance.deployVNF(vnfdId, params);
     await instance.reportDeployment(1, user, true, vnfId);
 
     // act
-    const result = (await instance.deleteVNF(1)).logs[0];
+    const result = await instance.deleteVNF(1);
 
     // assert
-    assert.equal(result.event, "DeleteVNF");
-    assert.equal(result.args["creator"], user);
-    assert.equal(result.args["correlationId"], 1);
-    assert.equal(result.args["vnfId"], vnfId);
+    truffleAssert.eventEmitted(result, "DeleteVNF", e => {
+      return e.creator == user && e.correlationId == 1 && e.vnfId == vnfId;
+    });
   });
 
   it("should emit a DeletionStatus event", async() => {
     // arrange
-    const instance = await VNFDeployment.deployed();
+    // const instance = await sc.deployed();
     const user = await instance.creator();
     await instance.registerBackend(user);
     await instance.reportRegistration(user, true);
-    const vnfdId = "1";
+    const vnfdId = "XYZ";
     const params = "ram=1G,cpu=2,disk=500G";
     await instance.deployVNF(vnfdId, params);
     const correlationId = 1;
     const vnfIdEncrypted = "0xfabababababababab";
 
     // act
-    const result = (await instance.reportDeletion(correlationId, user, true)).logs[0];
+    const result = await instance.reportDeletion(correlationId, user, true);
 
     // assert
-    assert.equal(result.event, "DeletionStatus");
-    assert.equal(result.args["correlationId"], correlationId);
-    assert.equal(result.args["user"], user);
-    assert.equal(result.args["success"], true);
+    truffleAssert.eventEmitted(result, "DeletionStatus", e => {
+      return e.correlationId == correlationId && e.user == user && e.success == true;
+    });
   });
 
 })
