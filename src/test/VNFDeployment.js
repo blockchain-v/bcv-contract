@@ -90,7 +90,7 @@ contract("VNFDeployment", accounts => {
     // assert
     assert.equal(result.event, "DeployVNF");
     assert.equal(result.args["creator"], user);
-    assert.equal(result.args["vnfId"], 1);
+    assert.equal(result.args["correlationId"], 1);
     assert.equal(result.args["vnfdId"], vnfdId);
     assert.equal(result.args["parameters"], params);
   });
@@ -104,30 +104,32 @@ contract("VNFDeployment", accounts => {
     const vnfdId = "1";
     const params = "ram=1G,cpu=2,disk=500G";
     await instance.deployVNF(vnfdId, params);
-    const vnfId = 1;
-    const vnfIdEncrypted = "0xfabababababababab";
+    const correlationId = 1;
+    const vnfId = "0xfabababababababab";
 
     // act
-    const result = (await instance.reportDeployment(vnfId, user, true, vnfIdEncrypted)).logs[0];
+    const result = (await instance.reportDeployment(correlationId, user, true, vnfId)).logs[0];
 
     // assert
     assert.equal(result.event, "DeploymentStatus");
-    assert.equal(result.args["vnfId"], vnfId);
+    assert.equal(result.args["correlationId"], correlationId);
     assert.equal(result.args["user"], user);
     assert.equal(result.args["success"], true);
-    assert.equal(result.args["vnfIdEncrypted"], vnfIdEncrypted);
+    assert.equal(result.args["vnfId"], vnfId);
   });
 
   it("should emit a DeleteVNF event", async() => {
     // arrange
     const instance = await VNFDeployment.deployed();
     const user = await instance.creator();
+    const vnfId = "ASDF-8291-DFEA";
     await instance.registerBackend(user);
     await instance.reportRegistration(user, true);
 
     const vnfdId = "1";
     const params = "ram=1G,cpu=2,disk=500G";
-    await instance.deployVNF(vnfdId, params)
+    await instance.deployVNF(vnfdId, params);
+    await instance.reportDeployment(1, user, true, vnfId);
 
     // act
     const result = (await instance.deleteVNF(1)).logs[0];
@@ -135,7 +137,8 @@ contract("VNFDeployment", accounts => {
     // assert
     assert.equal(result.event, "DeleteVNF");
     assert.equal(result.args["creator"], user);
-    assert.equal(result.args["vnfId"], 1);
+    assert.equal(result.args["correlationId"], 1);
+    assert.equal(result.args["vnfId"], vnfId);
   });
 
   it("should emit a DeletionStatus event", async() => {
@@ -147,15 +150,15 @@ contract("VNFDeployment", accounts => {
     const vnfdId = "1";
     const params = "ram=1G,cpu=2,disk=500G";
     await instance.deployVNF(vnfdId, params);
-    const vnfId = 1;
+    const correlationId = 1;
     const vnfIdEncrypted = "0xfabababababababab";
 
     // act
-    const result = (await instance.reportDeletion(vnfId, user, true)).logs[0];
+    const result = (await instance.reportDeletion(correlationId, user, true)).logs[0];
 
     // assert
     assert.equal(result.event, "DeletionStatus");
-    assert.equal(result.args["vnfId"], vnfId);
+    assert.equal(result.args["correlationId"], correlationId);
     assert.equal(result.args["user"], user);
     assert.equal(result.args["success"], true);
   });
