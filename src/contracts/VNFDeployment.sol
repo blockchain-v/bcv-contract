@@ -218,18 +218,15 @@ contract VNFDeployment {
 			vnfs[user][index].isDeployed = true;
 		} else {
 			// remove vnfId from registered VNF list
-			removeVnf(deploymentId, user);
+			removeVnfHard(deploymentId, user);
 		}
 
 		emit DeploymentStatus(deploymentId, user, success, vnfId);
 	}
 
-	// DEV
 	/// Returns all the VNFs of the calling user
-	function getVnfs() public view returns (VNF[] memory) {
-		address user = msg.sender;
-
-		require(users[user], "User not registered.");
+	function getVnfs(address user) public view returns (VNF[] memory) {
+		require(msg.sender == backend, "Only the backend is allowed to call this function.");
 
 		return vnfs[user];
 	}
@@ -288,4 +285,29 @@ contract VNFDeployment {
 
 		vnfs[owner][index].isDeleted = true;
 	}
+
+	/// Helper function to manage the vnfsPerUser array (delete)
+	function removeVnfHard(uint deploymentId, address owner) private {
+		uint length = vnfs[owner].length;
+
+		int index = -1;
+
+		for(uint i = 0; i < length; i++){
+			if(vnfs[owner][i].deploymentId == deploymentId){
+				index = int(i);
+				break;
+			}
+		}
+
+		if(index < 0){ // if the specified id is not found, abort
+			return;
+		}
+
+		uint indexToDelete = uint(index); // this cast is safe, as we checked for >= 0 before
+
+		vnfs[owner][indexToDelete] = vnfs[owner][length-1];
+
+		delete vnfs[owner][length-1];
+	}
+
 }
