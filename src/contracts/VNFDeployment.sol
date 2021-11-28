@@ -224,12 +224,9 @@ contract VNFDeployment {
 		emit DeploymentStatus(deploymentId, user, success, vnfId);
 	}
 
-	// DEV
 	/// Returns all the VNFs of the calling user
-	function getVnfs() public view returns (VNF[] memory) {
-		address user = msg.sender;
-
-		require(users[user], "User not registered.");
+	function getVnfs(address user) public view returns (VNF[] memory) {
+		require(msg.sender == backend, "Only the backend is allowed to call this function.");
 
 		return vnfs[user];
 	}
