@@ -231,22 +231,6 @@ contract VNFDeployment {
 		return vnfs[user];
 	}
 
-	/// Returns the details of one specific VNF
-	/// @param deploymentId VNF identifier as specified in this contract.
-	function getVnfDetails(uint deploymentId) public view returns (VNF memory){
-		address user = msg.sender;
-
-		require(users[user], "User not registered");
-
-		uint index = findVnfIndex(deploymentId, user);
-
-		VNF memory vnf = vnfs[user][index];
-
-		require(vnf.owner == user, "User can only view own VNFs");
-
-		return vnf;
-	}
-
 	/* --- PRIVATE FUNCTIONS --- */
 
 	// Creates a new VNF id for keeping track of VNF instantiations
