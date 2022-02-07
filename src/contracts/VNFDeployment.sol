@@ -81,9 +81,6 @@ contract VNFDeployment {
 	/// @param vnfId VNF identifier as specified by the backend.
 	event DeleteVNF(address creator, uint deploymentId, string vnfId);
 
-	// TODO
-	event ModifyVNF(address creator, string vnfId, string parameters);
-
 	// Event which signals the VNF's deployment status to the frontend.
 	/// @param deploymentId VNF identifier as specified in this contract.
 	/// @param user User owning the VNF
