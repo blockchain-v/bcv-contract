@@ -109,7 +109,6 @@ contract VNFDeployment {
 
 	// Registers the sender of a transaction as a user
 	/// @param signedAddress signature of the user's address
-	// TODO: admin could register users
 	function registerUser(string memory signedAddress) public {
 		address user = msg.sender;
 
